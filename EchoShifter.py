@@ -3,16 +3,7 @@ import numpy as np
 from matplotlib import pyplot
 import scipy
 
-# extraction = [0.55, 1]
-
-# data = np.load('0.5meter.npy')
-# bp_filter = library.BandBassFilter(35000, 45000, fs)
-# data = bp_filter.run(data)
-
-vs = 340
-
-
-class echo:
+class EchoShifter:
     def __init__(self, filename, window):
         self.file_name = filename
         self.window = window
@@ -22,13 +13,17 @@ class echo:
         self.alpha = -1.3
         self.samples_per_meter = self.fs / self.vs
         self.bp_filter = library.BandBassFilter(35000, 45000, self.fs)
+
+        # Read and filter the recorded data
         self.raw = np.load(self.file_name)
         self.raw = self.bp_filter.run(self.raw)
         self.samples = self.raw.size
         self.noise_samples = self.raw[self.samples - 1000:]
         self.time_axis = np.linspace(0, self.samples / self.fs, self.samples)
-        self.distance_axis = self.time_axis * vs / 2
+        self.distance_axis = self.time_axis * self.vs / 2
+        # Extract the relevant echo
         self.extracted_distances, self.extracted_signal = self.extract_window()
+        # Estimate the noise distribution
         self.mu, self.sigma = scipy.stats.norm.fit(self.noise_samples)
 
     def plot_raw(self):
@@ -54,6 +49,7 @@ class echo:
     def shift(self, new_distance, add_noise=True):
         one_way_shift = new_distance - self.original_distance
         two_way_shift = one_way_shift * 2
+
         # atmospheric attenuation
         attenuation_db = self.alpha * two_way_shift
         attenuation_linear = library.db2ratio(attenuation_db)
@@ -70,7 +66,7 @@ class echo:
 
         # generate shifted wave
         new_wave = np.zeros(self.samples)
-        start_sample = self.samples_per_meter * new_distance
+        start_sample = 2 * self.samples_per_meter * new_distance
         start_sample = int(start_sample)
         end_sample = start_sample + len(new_extracted_signal)
         new_wave[start_sample:end_sample] = new_extracted_signal
@@ -87,15 +83,15 @@ class echo:
         return result
 
 
-e = echo('0.5meter.npy', [0.55, 1])
-e.plot_raw()
-e.plot_extracted()
-result = e.shift(1.15)
+shifter = EchoShifter('0.5meter.npy', [0.7, 1.1])
+shifter.plot_raw()
+shifter.plot_extracted()
+result = shifter.shift(1.4)
 
 # test
 data = np.load('1meter.npy')
-data = e.bp_filter.run(data)
-pyplot.plot(e.distance_axis, data)
+data = shifter.bp_filter.run(data)
+pyplot.plot(shifter.distance_axis, data)
 pyplot.plot(result['distances'], result['signal'], alpha=0.5)
 pyplot.show()
 
