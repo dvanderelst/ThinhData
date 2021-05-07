@@ -4,18 +4,19 @@ from matplotlib import pyplot
 import scipy
 
 class EchoShifter:
-    def __init__(self, filename, window):
+    def __init__(self, filename, window, index=0):
         self.file_name = filename
         self.window = window
         self.original_distance = window[0]
         self.fs = 300000
-        self.vs = 430
+        self.vs = 340
         self.alpha = -1.3
         self.samples_per_meter = self.fs / self.vs
         self.bp_filter = library.BandBassFilter(35000, 45000, self.fs)
 
         # Read and filter the recorded data
         self.raw = np.load(self.file_name)
+        if self.raw.ndim == 2: self.raw = self.raw[index, :]
         self.raw = self.bp_filter.run(self.raw)
         self.samples = self.raw.size
         self.noise_samples = self.raw[self.samples - 1000:]
@@ -57,11 +58,11 @@ class EchoShifter:
         # spreading
         new_extracted_distances = self.extracted_distances + one_way_shift
 
-        total_spreading = library.calculate_spreading(self.extracted_distances)
+        total_spreading = library.calculate_spreading(self.extracted_distances, outward=1, inward=0.5)
         new_total_spreading = library.calculate_spreading(new_extracted_distances)
         spreading_linear = new_total_spreading / total_spreading
 
-        # apply attenuations
+        # apply attenuation
         new_extracted_signal = self.extracted_signal * attenuation_linear * spreading_linear
 
         # generate shifted wave
@@ -83,17 +84,40 @@ class EchoShifter:
         return result
 
 
-shifter = EchoShifter('0.5meter.npy', [0.7, 1.1])
-shifter.plot_raw()
-shifter.plot_extracted()
-result = shifter.shift(1.4)
 
-# test
-data = np.load('1meter.npy')
-data = shifter.bp_filter.run(data)
-pyplot.plot(shifter.distance_axis, data)
-pyplot.plot(result['distances'], result['signal'], alpha=0.5)
-pyplot.show()
+for index in range(25):
+    index_a = index
+    index_b = index
 
-pyplot.plot(result['distance_axis'], result['new_wave'])
-pyplot.show()
+    shifter = EchoShifter('planter.npy', [0.25, 1], index=index_a)
+    result = shifter.shift(0.75)
+
+    reference_data = np.load('planter-1m.npy')[index_b,:]
+    reference_data = shifter.bp_filter.run(reference_data)
+
+    output_name = 'output/' + str(index_a) + '_' + str(index_b) + '.png'
+    pyplot.plot(shifter.distance_axis, reference_data, alpha=0.5)
+    pyplot.plot(result['distance_axis'], result['new_wave'], alpha=0.5)
+    pyplot.xlim([0.2, 3])
+    pyplot.title(output_name)
+    pyplot.savefig(output_name)
+    pyplot.close('all')
+        #
+    # index_a = 0
+# index_b = 0
+#
+# shifter = EchoShifter('planter.npy', [0.25, 1.5], index=index_a)
+# shifter.plot_raw()
+# shifter.plot_extracted()
+# result = shifter.shift(0.75)
+# pyplot.plot(result['distance_axis'], result['new_wave'], alpha=0.5)
+# pyplot.plot(result['distances'], result['signal'], alpha=0.5)
+# pyplot.show()
+# # #
+# #%% test
+# data = np.load('planter-1m.npy')[index_b,:]
+# data = shifter.bp_filter.run(data)
+# pyplot.plot(shifter.distance_axis, data)
+# pyplot.plot(result['distance_axis'], result['new_wave'], alpha=0.25)
+# pyplot.xlim([0.25,2.5])
+# pyplot.show()
