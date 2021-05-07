@@ -73,7 +73,7 @@ class EchoShifter:
         new_extracted_distances = self.extracted_distances + one_way_shift
 
         total_spreading = library.calculate_spreading(self.extracted_distances, self.outward, self.inward)
-        new_total_spreading = library.calculate_spreading(new_extracted_distances)
+        new_total_spreading = library.calculate_spreading(new_extracted_distances, self.outward, self.inward)
         spreading_linear = new_total_spreading / total_spreading
 
         # apply attenuation
@@ -90,7 +90,15 @@ class EchoShifter:
         if add_noise: noise = np.random.normal(scale=self.sigma, size=self.samples)
         new_wave = new_wave + noise
 
+        # Generate mask
+        mask = np.zeros(self.samples)
+        mask[start_sample:end_sample] = 1
+
+
         result = {}
+        result['attenuation'] = [attenuation_db, attenuation_linear]
+        result['new_total_spreading'] = new_total_spreading
+        result['spreading_linear'] = spreading_linear
         result['distances'] = new_extracted_distances
         result['signal'] = new_extracted_signal
         result['new_wave'] = new_wave
@@ -98,5 +106,6 @@ class EchoShifter:
         result['noise'] = noise
         result['one_way_shift'] = one_way_shift
         result['two_way_shift'] = two_way_shift
+        result['mask'] = mask
         self.result = result
         return result
