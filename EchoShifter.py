@@ -1,13 +1,15 @@
-import library
 import numpy as np
-from matplotlib import pyplot
 import scipy
+from matplotlib import pyplot
+import library
+
 
 class EchoShifter:
-    def __init__(self, filename, window, index=0):
+    def __init__(self, filename, window, index=0, orginal_distance=None):
         self.file_name = filename
         self.window = window
         self.original_distance = window[0]
+        if orginal_distance is not None: self.original_distance = orginal_distance
         self.fs = 300000
         self.vs = 340
         self.outward = 1
@@ -15,6 +17,7 @@ class EchoShifter:
         self.alpha = -1.3
         self.samples_per_meter = self.fs / self.vs
         self.bp_filter = library.BandBassFilter(35000, 45000, self.fs)
+        self.result = None
 
         # Read and filter the recorded data
         self.raw = np.load(self.file_name)
@@ -32,11 +35,20 @@ class EchoShifter:
     def plot_raw(self):
         pyplot.plot(self.distance_axis, self.raw)
         pyplot.title(self.file_name)
+        pyplot.grid()
         pyplot.show()
 
     def plot_extracted(self):
         pyplot.plot(self.extracted_distances, self.extracted_signal)
         pyplot.title(self.file_name + ': ' + str(self.window))
+        pyplot.grid()
+        pyplot.show()
+
+    def plot_result(self):
+        if self.result is None: return
+        pyplot.plot(self.result['distance_axis'], self.result['new_wave'], alpha=0.5)
+        pyplot.plot(self.result['distances'], self.result['signal'], alpha=0.5)
+        pyplot.grid()
         pyplot.show()
 
     def extract_window(self):
@@ -68,8 +80,9 @@ class EchoShifter:
         new_extracted_signal = self.extracted_signal * attenuation_linear * spreading_linear
 
         # generate shifted wave
+        offset = self.original_distance - self.window[0]
         new_wave = np.zeros(self.samples)
-        start_sample = 2 * self.samples_per_meter * new_distance
+        start_sample = 2 * self.samples_per_meter * (new_distance - offset)
         start_sample = int(start_sample)
         end_sample = start_sample + len(new_extracted_signal)
         new_wave[start_sample:end_sample] = new_extracted_signal
@@ -83,7 +96,7 @@ class EchoShifter:
         result['new_wave'] = new_wave
         result['distance_axis'] = self.distance_axis
         result['noise'] = noise
+        result['one_way_shift'] = one_way_shift
+        result['two_way_shift'] = two_way_shift
+        self.result = result
         return result
-
-
-
